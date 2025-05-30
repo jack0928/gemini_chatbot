@@ -1,50 +1,56 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Gemini API 키 로드
+# 페이지 설정
+st.set_page_config(
+    page_title="Gemini Chatbot",
+    layout="centered"
+)
+
+# Gemini API 설정
+# Note: API 키는 Streamlit Cloud Secrets Manager를 통해 등록해야 합니다.
+# .streamlit/secrets.toml 파일에 다음과 같이 설정:
+# [gcp]
+# gemini_api_key = "your-api-key-here"
 genai.configure(api_key=st.secrets["gcp"]["gemini_api_key"])
 
-# 모델 초기화
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Gemini 모델 설정
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-# 페이지 설정
-st.set_page_config(page_title="Gemini 챗봇", page_icon="🌠")
+# 제목
+st.title("Gemini Chatbot")
 
 # 세션 상태 초기화
-if "chat_log" not in st.session_state:
-    st.session_state.chat_log = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# 제목과 설명
-st.title("🌠 Gemini 챗봇")
-st.markdown("당신의 질문을 Gemini에게 물어보세요!")
+# 채팅 입력
+user_input = st.chat_input("메시지를 입력하세요...")
 
-# 이전 대화 내용 표시
-for role, message in st.session_state.chat_log:
-    if role == "🙋 사용자":
-        st.markdown(f"**{role}**: {message}")
+# 사용자 입력이 있을 경우 처리
+if user_input:
+    try:
+        # 사용자 메시지를 채팅 히스토리에 추가
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        
+        # Gemini에 전송할 메시지 구성
+        messages = []
+        for message in st.session_state.chat_history:
+            messages.append({"role": message["role"], "parts": [message["content"]]})
+        
+        # Gemini API 호출
+        response = model.generate_content(messages)
+        
+        # Gemini 응답을 채팅 히스토리에 추가
+        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+    except Exception as e:
+        st.error(f"오류가 발생했습니다: {str(e)}")
+
+# 채팅 히스토리 표시
+for message in st.session_state.chat_history:
+    if message["role"] == "user":
+        with st.chat_message("user"):
+            st.write(message["content"])
     else:
-        st.markdown(f"**{role}**: {message}")
-    st.markdown("---")
-
-# 대화 입력 폼
-with st.form("chat_form"):
-    user_input = st.text_input("✍️ 질문을 입력해 주세요", placeholder="예: 오늘의 운세는?")
-    submitted = st.form_submit_button("질문하기")
-
-# 폼 제출 처리
-if submitted:
-    if not user_input.strip():
-        st.warning("❗ 질문을 입력해 주세요.")
-    else:
-        try:
-            response = model.generate_content(user_input)
-            if not response.text.strip():
-                st.warning("⚠️ 응답이 비어 있어요. 다시 시도해 주세요.")
-            else:
-                st.session_state.chat_log.append(("🙋 사용자", user_input))
-                st.session_state.chat_log.append(("🤖 Gemini", response.text))
-        except Exception as e:
-            st.error(f"🚫 오류 발생: {e}")
-
-# 안내 문구
-st.markdown("""\n---\n🔐 *이 서비스는 Gemini-1.5-Flash를 사용하며, 재미와 정보 제공을 위한 용도입니다.*\n""")
+        with st.chat_message("assistant"):
+            st.write(message["content"])
