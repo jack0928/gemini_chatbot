@@ -43,7 +43,6 @@ if submitted:
             else:
                 st.session_state.chat_log.append(("🙋 사용자", user_input))
                 st.session_state.chat_log.append(("🤖 Gemini", response.text))
-                st.rerun()
         except Exception as e:
             st.error(f"🚫 오류 발생: {e}")
 
